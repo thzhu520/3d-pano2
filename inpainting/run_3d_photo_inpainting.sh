@@ -1,5 +1,13 @@
-python3 inpainting/time.py
-docker build -t 3d-photo-inpainting inpainting/. 
-python3 inpainting/time.py
-docker run --runtime=nvidia -u $(xid -u):$(id -g) -e USER=$USER -it --rm -e CUDA_VISIBLE_DEVICES=3 -e HF_HOME=/inpainting/checkpoint -v ./data:/inpainting/data -v ./results:/inpainting/results 3d-photo-inpainting sh -c "cd /inpainting; python3 main.py"
-python3 inpainting/time.py
+#!/bin/bash
+
+WORK_DIR=${1:-data}
+
+# Build container
+docker build -t 3d-photo-inpainting inpainting/.
+
+# Run container with the working dir mounted
+docker run --runtime=nvidia -u $(id -u):$(id -g) \
+  -e USER=$USER \
+  -v "$(pwd)/$WORK_DIR":/app/data \
+  -it --rm 3d-photo-inpainting \
+  python /app/inpainting/time.py /app/data

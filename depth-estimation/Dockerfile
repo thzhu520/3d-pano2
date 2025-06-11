@@ -1,56 +1,51 @@
-# build docker image: docker build -f Dockerfile -t mzy22/monodepth:v1.0 .
-# create docker container with image: docker run --name=mzy22_monodepth -e COLUMNS=300 --mount type=bind,source="$(pwd)",target=/monodepth_dev -it --gpus all mzy22/monodepth:v1.0
-
-# ubuntu 20.04/cuda
+# Base image with CUDA 12.3 and Ubuntu 20.04
 FROM nvidia/cuda:12.3.0-devel-ubuntu20.04
-# FROM alpine:3.4
 
-#-- setup building environment 
-RUN apt-get update
-
-# 1) set up cpp code building dependent 3rd party libraries
+# Noninteractive mode and timezone setup
 ARG DEBIAN_FRONTEND=noninteractive
 ENV TZ=Europe/London
 
-RUN apt-get install --no-install-recommends \
-        build-essential \
-         cmake \
-         libeigen3-dev \
-         libgoogle-glog-dev \
-         libgtest-dev \
-         libopencv-dev \
-         libceres-dev \
-         python3-pybind11 \
-         git \
-         wget \
-         libboost1.71-dev  -y
+# Update and install core system dependencies
+RUN apt-get update && apt-get install --no-install-recommends -y \
+    build-essential \
+    cmake \
+    libeigen3-dev \
+    libgoogle-glog-dev \
+    libgtest-dev \
+    libopencv-dev \
+    libceres-dev \
+    python3-pybind11 \
+    git \
+    wget \
+    libboost1.71-dev \
+    libpython3-dev \
+    python3-pip \
+    && rm -rf /var/lib/apt/lists/*
 
-# 2) set up python module's build environment
-RUN apt install --no-install-recommends \
-        libpython3-dev \
-        python3-pip -y
+# Set working directory
+WORKDIR /monodepth
 
-# 3) set up python run environment
-# Put everything in some subfolder
-WORKDIR "/monodepth"
-COPY 360monodepth ./
+# Copy the 360monodepth folder (from depth-estimation build context)
+COPY 360monodepth ./360monodepth
 
-# Setup BoostingMonocularDepth
-#RUN cd ./BoostingMonocularDepth/pix2pix/ && mkdir -p checkpoints/mergemodel
-# Midas weights
-RUN wget https://github.com/isl-org/MiDaS/releases/download/v2_1/model-f6b98070.pt -O ./BoostingMonocularDepth/midas/model.pt
-# Merge net weights
-#RUN wget -P ./BoostingMonocularDepth/pix2pix/checkpoints/mergemodel https://www.sfu.ca/~yagiz/CVPR21/latest_net_G.pth
+# Download MiDaS model weights
+RUN mkdir -p ./360monodepth/BoostingMonocularDepth/midas && \
+    wget https://github.com/isl-org/MiDaS/releases/download/v2_1/model-f6b98070.pt -O ./360monodepth/BoostingMonocularDepth/midas/model.pt
 
-RUN pip3 install -r ./code/python/requirements.txt
+RUN find ./360monodepth -name "requirements.txt" -type f
+RUN ls -la ./360monodepth/
 
-#-- build python cpp module
-# 1) build the cpp project
-RUN cd ./code/cpp && mkdir build && cd build && cmake ..  -DCMAKE_BUILD_TYPE=Release && make -j
+# Install Python dependencies
+RUN ln -s /usr/bin/python3 /usr/bin/python && \
+    pip3 install colorama>=0.4.4 matplotlib>=3.4.1 scikit-image>=0.18.1 scipy>=1.6.2 opencv-python>=4.5.1.48 torch>=1.8.1 torchvision>=0.9.1 wheel>=0.36.2 packaging>=20.0 pyparsing>=2.3.1 "numpy<2,>=1.20" pillow>=6.2.0 timm==0.6.13
 
-# 2) build & install python module
-RUN cd ./code/cpp/python/ && python3 ./setup.py build && python3 ./setup.py bdist_wheel && pip3 install dist/instaOmniDepth-0.1.0-cp38-cp38-linux_x86_64.whl
+RUN cd ./360monodepth/code/cpp && mkdir -p build && cd build && cmake .. -DCMAKE_BUILD_TYPE=Release && make -j
 
+# Give full read-write access to monodepth files
 RUN chmod -R a+rwX /monodepth
 
+# Optional: HuggingFace cache directory
 ENV HF_HOME /monodepth/cache
+
+# Default command: launch a bash shell
+CMD ["/bin/bash"]

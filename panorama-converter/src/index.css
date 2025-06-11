@@ -1,0 +1,10 @@
+body {
+  margin: 0;
+  font: Playfair Display, sans-serif;
+  background-color: #f9eedc;
+}
+#root {
+  flex-direction: column;
+  align-items: center;
+  min-height: 100vh;
+}

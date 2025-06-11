@@ -1,0 +1,17 @@
+   .upload-zone {
+    border: 2px dashed gray;
+    background-color: white;
+    padding: 2rem;
+    font-size: 1.2rem;
+    cursor: pointer;
+    transition: background-color 0.2s ease-in-out;
+  
+    width: 80%;
+    margin: 0 auto;
+    text-align: center;
+  }
+  
+  .upload-zone.drag-over {
+    background-color: #CEDEF7;
+  }
+  
